@@ -1,4 +1,4 @@
-# Log-Structured-File-System-LFS-
+# Log-Structured-File-System (LFS)
 
 The LFS disk is divided into fixed-size segments, each made up of a plurality
 of blocks; each block is made up of a fixed number of disk sectors; each sector
