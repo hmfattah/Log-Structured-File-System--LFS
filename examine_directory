@@ -1,0 +1,8 @@
+#! /bin/bash
+
+echo '*****   ls -1aR'
+ls -1aR
+
+echo '*****   find . -type f | grep -v "/.lfs/" | sort | xargs cksum'
+find . -type f | grep -v "/.lfs/" | sort | xargs cksum
+

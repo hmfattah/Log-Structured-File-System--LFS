@@ -1,0 +1,212 @@
+*****   ls -1aR
+.
+..
+.lfs
+abqlbmbn
+aeodkegs
+bcufpnce
+bvvzxiee
+bxnslzwc
+cbxkbzme
+clmesfte
+cssforfy
+dclbpnze
+dymtakjk
+ebxfpobh
+eiuvzzdv
+eyqefggn
+fckobbxh
+fhwzdsgo
+gdtjdvwu
+gguxyeyx
+gpvbrjqb
+hgivlnxy
+hovvrciq
+hpnavswv
+hwlrnpet
+hxndcsws
+idswqajw
+iehesxki
+iwfadytt
+iyehtjkz
+jbdmvcxb
+jmhdqzfx
+jtdqqeqx
+jvwfaeet
+kiilocap
+kmseiohr
+laflgjyu
+lkuhgdvc
+lmfhjkpb
+lmuimqrb
+lnkjfvbe
+lpxjgaej
+ltohesxt
+lwusxudl
+mobniuxh
+mpehuqgx
+mpigceaz
+mpzyupkh
+mussyopi
+mvdpjnca
+mwfjooxk
+ncypasrn
+ndzuxniy
+nizittzj
+nrlqmosp
+nswftrsm
+ntqdozxc
+ocmewkfl
+ohqsejdr
+omuiteje
+oyycrvxh
+piiaylpv
+prfzfoxf
+pycjnxoj
+qialupyw
+qkdqixeq
+qtmxpaqy
+rcigvtqc
+rmynasjk
+rowqtevq
+rpbavkrp
+ruxigtff
+scmyxbsj
+spivunoi
+sutxxezg
+szezmbvi
+tamddbzs
+tkyqizom
+toynebyo
+tplzdbzi
+twnpltbb
+uwqkkjot
+uylrtdbr
+vbtmowkm
+vfxixwzk
+vnbccsvq
+vtnlfwad
+vxeaagsz
+vyifgsew
+wgptxezm
+wlcmppfa
+wojejfhg
+wwxibjls
+xnxhchib
+xsoinrmv
+ytwcjzwi
+zciqrtsf
+zctowgxu
+zeuvjsfj
+zhbmrbkg
+zpheswgn
+zqvkykwk
+zwoatxgj
+
+./.lfs:
+.
+..
+inode_table
+segment_metadata
+write_order
+*****   find . -type f | grep -v "/.lfs/" | sort | xargs cksum
+3515167563 2062 ./abqlbmbn
+392014631 2835 ./aeodkegs
+1651203789 1753 ./bcufpnce
+2955445611 2568 ./bvvzxiee
+1191949310 1275 ./bxnslzwc
+1430276481 691 ./cbxkbzme
+1464896585 1535 ./clmesfte
+1521518938 2876 ./cssforfy
+4023909593 1169 ./dclbpnze
+1414724578 2946 ./dymtakjk
+2176718267 922 ./ebxfpobh
+1798826925 1528 ./eiuvzzdv
+347097032 517 ./eyqefggn
+1980897659 1324 ./fckobbxh
+89807586 1083 ./fhwzdsgo
+994171189 334 ./gdtjdvwu
+1839017650 606 ./gguxyeyx
+3295734900 1770 ./gpvbrjqb
+4119385487 2266 ./hgivlnxy
+2128738385 2716 ./hovvrciq
+1072004343 1596 ./hpnavswv
+1618916008 722 ./hwlrnpet
+1425143440 1950 ./hxndcsws
+4265864477 1617 ./idswqajw
+3325838350 1682 ./iehesxki
+3564835096 2826 ./iwfadytt
+1132132857 1491 ./iyehtjkz
+15885688 772 ./jbdmvcxb
+2305986568 1592 ./jmhdqzfx
+2041670227 395 ./jtdqqeqx
+2067860004 2720 ./jvwfaeet
+1881941486 331 ./kiilocap
+1577108986 1930 ./kmseiohr
+2258325660 1230 ./laflgjyu
+3016977893 546 ./lkuhgdvc
+134989134 375 ./lmfhjkpb
+531624336 2703 ./lmuimqrb
+2879732862 941 ./lnkjfvbe
+1534262779 752 ./lpxjgaej
+4170141789 974 ./ltohesxt
+4160403303 1799 ./lwusxudl
+533974339 2542 ./mobniuxh
+3143255457 1259 ./mpehuqgx
+500210337 1652 ./mpigceaz
+399066086 1645 ./mpzyupkh
+1117984515 1873 ./mussyopi
+1175433611 1485 ./mvdpjnca
+2130485105 1477 ./mwfjooxk
+1940463266 1239 ./ncypasrn
+2292603831 3119 ./ndzuxniy
+1286965040 2356 ./nizittzj
+966021439 2969 ./nrlqmosp
+2751201113 870 ./nswftrsm
+3783726609 3041 ./ntqdozxc
+3702630306 2773 ./ocmewkfl
+859752066 2179 ./ohqsejdr
+2812847910 1009 ./omuiteje
+2847337215 3293 ./oyycrvxh
+2081924346 2384 ./piiaylpv
+1795716693 2988 ./prfzfoxf
+1599165109 528 ./pycjnxoj
+2187965240 1866 ./qialupyw
+3616721628 375 ./qkdqixeq
+3313119916 2865 ./qtmxpaqy
+2419636513 1676 ./rcigvtqc
+1197183222 2810 ./rmynasjk
+2674681375 1862 ./rowqtevq
+1687694624 2241 ./rpbavkrp
+602966305 2183 ./ruxigtff
+4289221375 917 ./scmyxbsj
+704836621 2695 ./spivunoi
+1475726547 1607 ./sutxxezg
+3507077133 350 ./szezmbvi
+1781913835 1726 ./tamddbzs
+803362706 901 ./tkyqizom
+1096231702 953 ./toynebyo
+689236040 1626 ./tplzdbzi
+4079058293 387 ./twnpltbb
+852400494 1287 ./uwqkkjot
+1866668803 2699 ./uylrtdbr
+2256454120 1736 ./vbtmowkm
+1505641288 2780 ./vfxixwzk
+1850140017 1004 ./vnbccsvq
+4215626242 1347 ./vtnlfwad
+1771523303 2540 ./vxeaagsz
+4156132653 1800 ./vyifgsew
+3186630484 1118 ./wgptxezm
+1749701807 1870 ./wlcmppfa
+2532162570 1380 ./wojejfhg
+1998981610 2868 ./wwxibjls
+3612726940 1959 ./xnxhchib
+2694100291 2406 ./xsoinrmv
+2618991841 610 ./ytwcjzwi
+370007992 1099 ./zciqrtsf
+181237012 2924 ./zctowgxu
+840336839 636 ./zeuvjsfj
+2117897939 340 ./zhbmrbkg
+4167197470 2979 ./zpheswgn
+3654176924 2047 ./zqvkykwk
+3784702679 3184 ./zwoatxgj

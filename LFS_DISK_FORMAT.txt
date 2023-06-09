@@ -1,0 +1,491 @@
+lfs some link: 
+https://www.youtube.com/watch?v=KTCkW_6zz2k&ab_channel=DavidEvans
+
+git: 
+https://github.com/sphurti/Log-Structured-Filesystem/tree/master/src
+https://github.com/skyrain/LogStructuredFileSystem/tree/master/code
+
+hex calculators: 
+https://www.rapidtables.com/code/text/ascii-table.html (ASCII chart)
+https://www.rapidtables.com/convert/number/hex-to-decimal.html (hex to decimal)
+https://www.calculator.net/hex-calculator.html (find difference between hex numbers)
+
+OVERVIEW
+
+The LFS disk is divided into fixed-size segments, each made up of a plurality
+of blocks; each block is made up of a fixed number of disk sectors; each sector
+is 512 bytes in size.
+
+The first segment of the disk is reserved for special purposes - it contains
+the Disk Header (which contains all of the unchangable parameters for the
+system), and space for two checkpoints.  All other segments are used to contain
+the log itself; they may be written, cleaned, and re-written any number of
+times during the lifetime of the filesystem.
+
+The ordinary segments (from here on, "segments") are each made up of a segment
+header, which is one block in size, and a plurality of blocks, each of which is
+either a data block or an index block.  Note that the log contains no special
+block types (other than indices); all metadata is stored in files, which are
+stored in ordinary blocks.
+
+MAGIC STRINGS AND CHECKSUMS
+
+Many critical data structures in LFS include "magic strings," which are
+buffers, typically 4 or 8 characters in length, which contain ASCII strings
+(*without* any NULL terminator).  If this magic string is not present in any
+supposed data structure, the contents of that data structure should be viewed
+as corrupt.
+
+In addition, some data structures include "checksums," which are useful to
+confirm that a block (or range of blocks) have been completely and correctly
+flushed to disk.  Code that reads such a data structure should confirm that the
+checksum is correct, and if it is not, then the contents of that data structure
+should be viewed as corrupt.
+
+Note that the checksum used, at time of writing, is *NOT* a correct CRC
+implementation; it is known to be incorrect.  As such, the function that
+generates it, which will be given below, is known as "BUGGY_crc()" to remind
+all users that it should not be regarded as correct.  Later versions of LFS
+will update the code to use a correct CRC implementation.
+
+THE FIRST SEGMENT
+
+The first segment uses 3 erase blocks of the Flash device.  If (as is common)
+the segment is larger than 3 erase blocks, then the rest of the space in that
+segment will not be used by LFS.
+
+Erase block 0 contains the Disk Header.
+
+Erase block 1 contains the first checkpoint buffer.
+
+Erase block 2 contains the second checkpoint buffer.
+
+DISK HEADER
+
+The Disk Header contains all of the data which cannot change during the
+lifetime of the filesystem.  It contains the following fields:
+
+  +-------+---------------------------
+  | bytes | Purpose
+  +-------+---------------------------
+  |  0-7  | Magic string "RUSS_LFS"
+  +-------+---------------------------
+  |  8-11 | LFS Version: must be 1
+  +-------+---------------------------
+  | 12-15 | Block size, in sectors
+  +-------+---------------------------
+  | 16-19 | Segment size, in blocks
+  +-------+---------------------------
+  | 20-23 | *buggy* CRC
+  +-------+---------------------------
+
+The LFS Version, at time of writing, is always 1.  As the LFS design evolves in
+the future, this value will be incremented so that software can know how to
+interpret the data on disk.
+
+The CRC, as noted above, uses the "BUGGY_crc()" function; the CRC should be
+generated over the entire Disk Header (including the magic string), *except*
+for the CRC field itself.
+
+CHECKPOINTS
+
+Checkpoints are erased and re-written many times during the lifetime of LFS.
+In all cases, we keep the most recent valid checkpoint intact, and modify the
+other; in this way, we write a new checkpoint without destroying old state (in
+case the machine fails during the write of the checkpoint).  Thus, it is
+possible to have one valid and one invalid checkpoint on disk; however, the
+normal state is to have two valid checkpoints - which are the two most recent
+written to disk.
+
+Each checkpoint has the same format:
+
+  +-------+---------------------------
+  | bytes | Purpose
+  +-------+---------------------------
+  |  0-3  | Magic string "CKPT"
+  +-------+---------------------------
+  |  4-7  | *** pad bytes, must be zeroes ***
+  +-------+---------------------------
+  |  8-15 | Sequence Number of most recent flushed segment
+  +-------+---------------------------
+  | 16-23 | Block address of most recent write of block 0, of file 0
+  +-------+---------------------------
+  | 24-27 | *buggy* CRC
+  +-------+---------------------------
+
+As with the Disk Header, the CRC value is calculated over the entire header,
+*except* for the CRC field itself.
+
+The Sequence Number mentioned identifies which segment was most recently
+written to disks.  Sequence Numbers are sequentially assigned to segments as
+they are composed and written; the initial (empty) LFS state has a segment with
+seqNum=1.  As we load the LFS from disk and make changes, writing those changes
+to the log by flushing segments to disk, each new segment gets the next
+sequence number.  Thus, while there is no way to link sequence numbers to
+wall-clock time, they form a universal clock across the lifetime of the system.
+As such, if you have two valid checkpoints, you can compare which is newer
+simply by comparing their sequence numbers.
+
+The checkpoint also contains the address of block 0 of file 0.  This is the
+first block of a file that LFS uses to contain all of the inodes; thus, reading
+this file allows LFS to find all of the files in the filesystem.  Inodes, and
+how we handle file 0, will be discussed later.  (See the next section for the
+definition of "block address.")
+
+BLOCK ADDRESSES
+
+LFS identifies data using "block addresses," which are simply 64-bit addresses
+into the disk.  Their unit of measure is the LFS block (not sector), and they
+do not (explicitly) account for segments; instead, they are designed so that
+you can simply read a block directly from Flash if desired.
+
+Of course, you can figure out what segment contains any given block by
+division; in our "common config," where segments are 32 blocks long, block
+address 32 is the first physical block in segment 1; this is the block that
+would contain the Segment Header for segment 1.  The first "data block" of
+segment 1 would be block address 33, and the first data block of segment 2
+would be block address 65.
+
+When we read indices to find the blocks of a file, block address 0 is sometimes
+used; 0 is a valid value, with a special meaning: it simply means a block which
+contains nothing but 0s.  Physical block 0 (which contains the Disk Header)
+must *NOT* be read!
+
+Also note that block addresses, since they are physical addresses, have nothing
+to do with the logical order in which blocks were written (except that, within
+a single segment, the blocks are written in the same order they were composed).
+
+SEGMENT FORMAT
+
+Each segment contains a Segment Header, which resides in the first block, as
+well as an array of Segment Metadata entries, which share the same block.
+While the size of the Segment Header is fixed, the number of Segment Metadata
+entries depends on the size of the segment - there is one entry for each block
+in the segment (including block 0, which contains the Header and Metadata).
+
+NOTE: In certain block/segment size combinations, it would be possible for the
+      Segment Metadata array to be so large that it, plus the Header, could not
+      fit into a single block.  These combinations are disallowed; we will
+      never create an LFS with such a config, and as such you may assume that
+      cannot happen.
+
+The Segment Header has the following fields:
+
+  +-------+---------------------------
+  | bytes | Purpose
+  +-------+---------------------------
+  |  0-3  | Magic string "SGMT"
+  +-------+---------------------------
+  |  4-11 | Sequence Number of this segment
+  +-------+---------------------------
+  | 12-15 | *buggy* CRC
+  +-------+---------------------------
+
+In addition to the Segment Header and the Segment Metadata array, the segment
+contains a small amount of space for Cleaner metadata.  In the physical segment
+on disk, this *MUST* be zero - but the space is reserved for use by the
+Cleaner.  (This document does not describe how it will be used.)
+
+Thus, the overall format of block 0 of the Segment is as follows:
+
+  +--------+---------------------------
+  | bytes  | Purpose
+  +--------+---------------------------
+  |  0-15  | Header (see above)
+  +--------+---------------------------
+  | 16-19  | RESERVED.  Must be zero on disk.  (Will be updated by the Cleaner, later.)
+  +--------+---------------------------
+  | 20-23  | *buggy* CRC of the rest of the segment (starting at the next byte)
+  +--------+---------------------------
+  | 24-??  | Segment Metadata[] array
+  +--------+---------------------------
+  | ??-end | RESERVED.  Must be zero
+  +--------+---------------------------
+
+This includes a second CRC.  This CRC covers the entire segment, from the
+beginning of the Segment Metadata array to the end of the physical segment.
+It does *not* include the Segment Header (or its CRC), the 4 bytes that are
+reserved for the Cleaner, or this CRC itself.  Note that, in order for the
+CRC to be meaningful, empty spaces in the segment must be filled with zeroes.
+Therefore, the balance of block 0, from the end of the Segment Metadata array
+to the end of the block, must be zeroes; likewise, any unused blocks in the
+segment must be zeroes.
+
+Each entry in the Segment Metadata table has the following format:
+
+  +--------+---------------------------
+  | bytes  | Purpose
+  +--------+---------------------------
+  |  0-7   | Inum
+  +--------+---------------------------
+  |  8-15  | Block Number
+  +--------+---------------------------
+
+The Inum field is the inode number; it is an index into the array of inodes,
+which are stored in file 0.  It can be 0 (since we routinely write out file 0
+to disk).  It can be -1, meaning that the block does not store valid data; this
+happens at the end of the array, if a segment was flushed to disk incomplete
+(as part of a checkpoint).  It can also happen in the *middle* or beginning of
+a segment; if a block is written, and then overwritten in the same segment,
+then LFS will set the Inum of the old entry to -1 to avoid confusion.
+
+Other than -1, no invalid Inum fields are allowed; it must always be a valid
+index into the inode array.
+
+The block number is the offset (in blocks) into the file of this particular
+block.  Note that this is the logical block address, into the file - that is,
+it is a position as regarded by the user.  It has *nothing* to do with our
+physical block addresses.
+
+The top 4 bits of the Block Number indicate whether this is a data block or an
+index; data blocks have 0, and indices have non-zero.  Index "levels" will be
+discussed far below, in this document.
+
+FILE 0 AND THE INODE TABLE
+
+File 0 contains the "inode table."  While this file has a special type
+(LFS_SPECIAL), this is only true so as to indicate that the user should not be
+able to write to the file; inside LFS, it is read and written like any other
+file.  File 0 can be any length, and thus LFS can support arbitrarily many
+files.
+
+Since the inode table is a simple array of inodes, the inode for file 0 must,
+by definition, exist at the head of the array - that is, at the head of block 0
+of that file.  We will require that, in any LFS configuration, the size of the
+block will always be >= the size of an inode, and so you can guarantee that, by
+reading block 0 of file 0, you can always read the entirely of inode 0.  (You
+will already read part or all of some other inodes, although you can ignore
+those at first.)
+
+When loading LFS from disk, the code must first find the location of block 0 of
+inode 0; this is stored in the checkpoint.  Using the location stored there,
+the implementation should read exactly one block, and save the contents of
+inode 0 into memory.  Then, using inode 0's index information (see below), the
+implementation can read the rest of the inodes.  (Implementations are
+encouraged to keep the entire inode table in memory at all times.)
+
+INODE FORMAT
+
+Each inode in the inode table has the following fields:
+
+  +---------+------------------------------
+  |  bytes  | Purpose
+  +---------+------------------------------
+  |   0-3   | Magic string "INOD"
+  +---------+------------------------------
+  |   4-7   | File type
+  +---------+------------------------------
+  |   8-15  | Mode   (you may ignore this in your project)
+  +---------+------------------------------
+  |  16-23  | Nlink
+  +---------+------------------------------
+  |  24-27  | Uid    (you may ignore this in your project)
+  +---------+------------------------------
+  |  28-31  | Gid    (you may ignore this in your project)
+  +---------+------------------------------
+  |  32-39  | Size of file (in bytes)
+  +---------+------------------------------
+  |  40-135 | Direct block addresses (12)
+  +---------+------------------------------
+  | 136-143 | First-level indirect index
+  +---------+------------------------------
+  | 144-151 | Second-level indirect index
+  +---------+------------------------------
+  | 152-159 | Third-level indirect index
+  +---------+------------------------------
+  | 160-167 | Fourth-level indirect index
+  +---------+------------------------------
+
+The file type is one of the following:
+  0 - no file.  The entry is not currently in use
+  1 - ordinary file
+  2 - directory
+  3 - symbolic link
+  4 - LFS special file.  Must be readonly to the user, writable to LFS
+  5 - (reserved for future use)
+  6 - dead zone.  Not a file, but reserves a part of the inode table that must
+                  never be written to.  Used to make checkpoints easier.
+
+The Nlink field keeps track of how many directories reference a file; it should
+get deleted if this goes to zero.
+
+The Direct block addresses are the address of the first 12 blocks of the file.
+Note that some of these might be 0 - even for valid blocks in the file.  You
+may assume that they are 0 for *all* invalid blocks.
+
+Each Indirect block address is the block address of an index block on disk,
+which covers a range of blocks, as discussed in the LFS paper.  Like with the
+direct block addresses, these may be 0; a 0 index block means that *all* of the
+data blocks covered by that index are zero.  (Similarly, a 0 entry, inside a
+nonzero index, means that all of the block(s) covered by that entry are zero.)
+
+DIRECTORIES
+
+A directory is an ordinary file, distinguished only by the "Type" field in the
+inode.  We use ordinary read and write mechanisms to access the contents of the
+file.
+
+The contents of a directory file are an array of directory entries; each entry
+has the following format:
+
+  +---------+------------------------------
+  |  bytes  | Purpose
+  +---------+------------------------------
+  |   0-3   | Inum
+  +---------+------------------------------
+  |   4-255 | Entry Name
+  +---------+------------------------------
+
+Entries in the table are valid if they have non-empty names; that is, invalid
+entries have the null character '\0' as the first character in the Entry Name
+field.  If the Entry Name is invalid, then the Inum field is meaningless and
+should be ignored.
+
+If the entry is valid, then the name is a null-terminated ASCII string (meaning
+that the longest directory entry name possible is 251 bytes).  The Inum is the
+inode number - that is, the index into the inode table of this file.
+
+If the entry is valid, then the Inum *must* be a valid index, referring to an
+existing file in the inode table.  While we would generally expect the inode to
+refer to an ordinary file, directory, or symbolic link, it might also refer to
+an LFS_SPECIAL file; in fact, several such files (including the inode table)
+are visible to the users inside the "/.lfs/" subdirectory.
+
+INDICES
+
+The first 12 blocks of any file have "direct" indices - that is, the physical
+block addresses are stored in the inode itself.  However, to read any blocks
+beyond that, you must use the index mechanisms.
+
+As described in the LFS paper (and following on from the UNIX FFS design),
+the next K blocks are indexed by a first-level index.  The address of this
+index is stored in the inode as well, but in order to read these blocks, you
+must first read the index block.  Once you have the index block, its contents
+are a simple array of physical block addresses, giving the location of the
+next K blocks in the file.
+
+How many entries are there in a block?  This value, which I've called K,
+depends on the block size.  In our "common" implementation, with a block size
+of 1024 bytes, K=128 (because block addresses are always 8 bytes in size).
+Therefore, the first index block covers blocks 12-139 of the file.
+
+LFS supports files even larger than this; to handle the next K^2 blocks, you
+use a second-level index block.  The address of the second-level index is of
+course in the inode as well; when you read this block, it contains the
+addresses for various first-level index blocks.  Thus, to read a block in
+this range, you must perform 3 reads: you read the second-level index, then
+the first-level index, and then the data block itself.
+
+Remember that, at any position or level (any entry in the inode, or any
+entry in any index block), you might find entries which are zero.  All blocks
+indexed by those entries are simply full of zeroes.
+
+PATH LOOKUP
+
+When the user asks to open a file named, for example, "/foo/bar/baz", you
+search the directories in turn: first, you search the root directory for an
+entry "foo"; if you find it, look up the inode and confirm that it is also a
+directory, and then continue the search.  The last entry in the pathname will
+typically be a file, although it could be a directory or symlink.
+
+To start the search, use file 1.  File 1 is defined to be the root directory
+file, in all LFS instances.
+
+
+
+
+
+
+
+---------------- SUPPLEMENTARY DATA: feel free to ignore ----------------
+
+INDEX BLOCKS IN THE LOG
+
+A readonly implementation of LFS does not need to write out new segments, and
+since it won't be using the cleaner, it is not required to understand the
+Segment Metadata in each section.  However, implementations that write to disk
+must understand.
+
+Index blocks are written into the log exactly like ordinary blocks.  The only
+thing that marks them as special is the Block Number field in their entry in
+the Segment Metadata array for that segment.  Index blocks have nonzero values
+in the top 4 bits of the Block Number: 1 means that this is a first-level
+index; 2 means a second-level index; and so on.
+
+The lower 60 bits of the Block Number must be a valid block address within the
+file, and it must be the block address of the *first* data block covered by
+this index.
+
+So, for example, imagine that you have recently written out a new data block,
+17, for some file.  You need to update the index which finds it.  You notice
+that it will be covered by the first indirect index, which (assuming a block
+size of 1024 bytes and thus 128 entries per index), covers data blocks 12-139.
+When you write this index to the log, you construct the Block Number by
+combining the Block Number of the first data block covered by the index (12)
+with the index level (1).  Thus, the Block Number for this index will be:
+  0x1000_0000_0000_000c
+
+Now suppose that you write out another data block, this time to block 293 in
+the file.  You notice that this is beyond the first index block, and so your
+first step is to write out the first-level index for this block.  This index
+covers a range which begins at 268=0x10c, but it is a first-level index.
+Therefore, the Block Number is:
+  0x1000_0000_0000_010c
+But now, you notice that the newly-written block cannot be indexed by the
+inode, since the inode only has a single slot for first-level indices.
+Instead, you must write out a second-level index.  You notice that this
+second-level index begins at block 140, and that your newly-written first-level
+index is its second entry.  You therefore update the second-level index, and
+then write it to disk; its start address is 140=0x8c and its level is 2:
+  0x2000_0000_0000_008c
+Since this is the first second-level index, it can be stored into the inode.
+
+SEGMENT METADATA AND FILE 3
+
+As noted above, the Segment Metadata array, which is part of block 0 of any
+physical segment, contains entries for *all* of the blocks in the segment,
+including block 0.  Readers may guess that entry 0 in the array would always be
+marked invalid, but they would be wrong!
+
+In fact, in every physical segment, block 0 is listed as being part of file 3.
+This is an ordinary file, with an entry in the inode table, and it even has a
+directory entry which makes it visible to the user.  This makes it possible for
+the user - or mechanisms inside LFS - to read the segment metadata of various
+segments using nothing more than ordinary read operations.
+
+In addition, LFS sometimes modifies these blocks - but it never modifies the
+original segment.  Instead, it writes the changes to the log as ordinary block
+writes.
+
+A read-only LFS implementation doesn't have to worry about the complexities of
+managing file 3; it can simply treat it like an ordinary file.
+
+SPECIAL INODES AND FILES
+
+This LFS design uses exactly two special Inum values.  File 0 always contains
+the inode table, through which we can look up all other files.  File 1 always
+is the root directory of the entire filesystem; through it, users can search
+for, open, read, or modify their files.
+
+LFS uses some other special files, but they do not have hard-coded Inum values.
+Instead, these files are dynamically created by mklfs and then given entries in
+the "/.lfs/" subdirectory; the system, as part of its bootstrap, uses directory
+lookup mechanisms to find and open these files.
+
+While a read-only implementation of the filesystem doesn't need to use any of
+these files, I've included a short description of each here:
+
+  "segment_metadata" - contains all of the block 0's, of each physical segment.
+                       If we want to change this information, we write to the
+                       file; this doesn't change the physical segment, but
+                       instead adds new data blocks to the log.
+
+  "write_order" - A list of physical segment IDs that we plan to use; includes
+                  both history of already-used segments, and also many from
+                  the future.
+
+  "invalidation_bitmsk" - FUTURE, not implemented yet.  Will hold a bitmap of
+                          all of the old blocks which have been invalidated,
+                          but which are not yet reflected in the segment_metadata
+                          file.
+
